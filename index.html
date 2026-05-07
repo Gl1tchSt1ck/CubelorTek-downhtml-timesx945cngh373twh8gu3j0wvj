@@ -1,0 +1,292 @@
+# VoxelCraft (Minecraft‑Inspired Sandbox)
+
+Save this as `index.html` and open it in a browser.
+
+You can later package it into an APK using tools like Capacitor, Cordova, or an Android WebView wrapper.
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>VoxelCraft</title>
+<style>
+html, body {
+    margin: 0;
+    overflow: hidden;
+    background: #87ceeb;
+    font-family: Arial, sans-serif;
+}
+#crosshair {
+    position: fixed;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    color: white;
+    font-size: 24px;
+    pointer-events: none;
+}
+#ui {
+    position: fixed;
+    top: 10px;
+    left: 10px;
+    color: white;
+    background: rgba(0,0,0,0.5);
+    padding: 10px;
+    border-radius: 10px;
+}
+canvas {
+    display: block;
+}
+</style>
+</head>
+<body>
+<div id="crosshair">+</div>
+<div id="splash" style="position:fixed;top:20px;left:50%;transform:translateX(-50%) rotate(-8deg);color:yellow;font-size:28px;font-weight:bold;text-shadow:2px 2px 4px black;z-index:10;"></div>
+<div id="ui">
+WASD = Move<br>
+Mouse = Look<br>
+Space = Jump<br>
+Left Click = Remove Block<br>
+Right Click = Place Block
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js';
+import { PointerLockControls } from 'https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/controls/PointerLockControls.js';
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x87ceeb);
+
+const camera = new THREE.PerspectiveCamera(
+    75,
+    window.innerWidth / window.innerHeight,
+    0.1,
+    1000
+);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
+
+const light = new THREE.DirectionalLight(0xffffff, 1);
+light.position.set(10, 20, 10);
+scene.add(light);
+scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+
+const controls = new PointerLockControls(camera, document.body);
+
+document.body.addEventListener('click', () => {
+    controls.lock();
+});
+
+scene.add(controls.getObject());
+
+const blocks = [];
+const world = new Map();
+
+const textures = {
+    grass: new THREE.MeshLambertMaterial({ color: 0x55aa55 }),
+    dirt: new THREE.MeshLambertMaterial({ color: 0x8b5a2b }),
+    stone: new THREE.MeshLambertMaterial({ color: 0x888888 })
+};
+
+function key(x,y,z){
+    return `${x},${y},${z}`;
+}
+
+function addBlock(x, y, z, material = textures.grass) {
+    const geo = new THREE.BoxGeometry(1,1,1);
+    const cube = new THREE.Mesh(geo, material);
+    cube.position.set(x,y,z);
+    scene.add(cube);
+    blocks.push(cube);
+    world.set(key(x,y,z), cube);
+}
+
+for(let x=-20;x<20;x++){
+    for(let z=-20;z<20;z++){
+        addBlock(x,0,z,textures.grass);
+        addBlock(x,-1,z,textures.dirt);
+        addBlock(x,-2,z,textures.stone);
+    }
+}
+
+for(let i=0;i<40;i++){
+    const x = Math.floor(Math.random()*30)-15;
+    const z = Math.floor(Math.random()*30)-15;
+    const h = Math.floor(Math.random()*4)+2;
+
+    for(let y=1;y<h;y++){
+        addBlock(x,y,z,textures.dirt);
+    }
+}
+
+camera.position.set(0,3,5);
+
+const move = {
+    forward:false,
+    backward:false,
+    left:false,
+    right:false
+};
+
+const velocity = new THREE.Vector3();
+const direction = new THREE.Vector3();
+let canJump = false;
+
+document.addEventListener('keydown', e => {
+    switch(e.code){
+        case 'KeyW': move.forward = true; break;
+        case 'KeyS': move.backward = true; break;
+        case 'KeyA': move.left = true; break;
+        case 'KeyD': move.right = true; break;
+        case 'Space':
+            if(canJump){
+                velocity.y += 6;
+                canJump = false;
+            }
+        break;
+    }
+});
+
+document.addEventListener('keyup', e => {
+    switch(e.code){
+        case 'KeyW': move.forward = false; break;
+        case 'KeyS': move.backward = false; break;
+        case 'KeyA': move.left = false; break;
+        case 'KeyD': move.right = false; break;
+    }
+});
+
+const raycaster = new THREE.Raycaster();
+
+window.addEventListener('mousedown', e => {
+    raycaster.setFromCamera(new THREE.Vector2(0,0), camera);
+    const hits = raycaster.intersectObjects(blocks);
+
+    if(hits.length > 0){
+        const hit = hits[0];
+
+        if(e.button === 0){
+            scene.remove(hit.object);
+            const index = blocks.indexOf(hit.object);
+            if(index !== -1) blocks.splice(index,1);
+        }
+
+        if(e.button === 2){
+            const pos = hit.point.clone().add(hit.face.normal.multiplyScalar(0.5));
+            addBlock(
+                Math.round(pos.x),
+                Math.round(pos.y),
+                Math.round(pos.z),
+                textures.grass
+            );
+        }
+    }
+});
+
+window.addEventListener('contextmenu', e => e.preventDefault());
+
+const splashes = [
+    "Powered by CubelorTech™",
+    "Quantum-powered terrain!",
+    "The future is block-shaped!",
+    "Craft beyond reality!",
+    "Technologically blocky!",
+    "Infinite worlds, finite RAM!",
+    "Hyperpixel technology!",
+    "This splash text is procedural!",
+    "Science but cubic!",
+    "More ores than ever!",
+    "Terrain generation successful!",
+    "Voxel vibes included!",
+    "Mine. Build. Upgrade.",
+    "Contains advanced cubology!",
+    "Now with extra voxels!",
+    "Build beyond blocks!",
+    "Generating cubic universe…",
+    "Warning: unstable amounts of fun!",
+    "Cyber ores detected!",
+    "3D cubes loaded successfully!",
+    "Rendering tomorrow!",
+    "Powered by imagination!",
+    "Neonstone mining enabled!",
+    "Byte crystals online!",
+    "Loading infinite creativity…",
+    "Cubed to perfection!",
+    "Future-proof blocks!",
+    "Reality.exe has been voxelized!",
+    "Welcome to the cubic frontier!",
+    "Block by block, byte by byte!"
+];
+
+document.getElementById('splash').textContent =
+    splashes[Math.floor(Math.random() * splashes.length)];
+
+const clock = new THREE.Clock();
+
+function animate(){
+    requestAnimationFrame(animate);
+
+    const delta = clock.getDelta();
+
+    velocity.x -= velocity.x * 10 * delta;
+    velocity.z -= velocity.z * 10 * delta;
+    velocity.y -= 9.8 * 5 * delta;
+
+    direction.z = Number(move.forward) - Number(move.backward);
+    direction.x = Number(move.right) - Number(move.left);
+    direction.normalize();
+
+    const speed = 10;
+
+    if(move.forward || move.backward){
+        velocity.z -= direction.z * speed * delta;
+    }
+
+    if(move.left || move.right){
+        velocity.x -= direction.x * speed * delta;
+    }
+
+    controls.moveRight(-velocity.x * delta);
+    controls.moveForward(-velocity.z * delta);
+
+    camera.position.y += velocity.y * delta;
+
+    if(camera.position.y < 2){
+        velocity.y = 0;
+        camera.position.y = 2;
+        canJump = true;
+    }
+
+    renderer.render(scene, camera);
+}
+
+animate();
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+</script>
+</body>
+</html>
+```
+
+## Turning It Into An APK
+
+1. Put the file in a folder.
+2. Use a wrapper like Capacitor or Cordova.
+3. Build the Android app.
+4. Rename the APK whatever you want.
+
+Suggested names:
+
+* VoxelCraft
+* BlockVerse
+* CubicRealms
+* MineGrid
+* TerraBlocks
